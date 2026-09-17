@@ -38,7 +38,18 @@
     padding: 24px;
   }
   h1 { font-size: 20px; margin: 0 0 4px; }
-  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .subtitle { color: var(--muted); font-size: 13px; }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+  }
   .controls {
     display: flex;
     gap: 12px;
@@ -96,8 +107,13 @@
 </style>
 </head>
 <body>
-  <h1>Fee Dashboard</h1>
-  <div class="subtitle">Live data from ERP</div>
+  <div class="header">
+    <img class="logo" src="https://okiedokie-erp-images.s3.ap-south-1.amazonaws.com/DVMD/2026/09/sourceURL/a71be9a759b3aa72698a-fbd5c165ccfcfeee2e05-footer_logo_new.png" alt="Dalmia Vidya Mandir logo" />
+    <div>
+      <h1>Fee Dashboard</h1>
+      <div class="subtitle">Live data from ERP</div>
+    </div>
+  </div>
 
   <div class="controls">
     <select id="entitySelect"></select>
