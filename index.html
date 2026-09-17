@@ -17,6 +17,8 @@
     --due: #ff3b30;
     --amber: #ff9f0a;
     --track: #e8e8ed;
+    --pink: #ff2d55;
+    --purple: #af52de;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
     --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.05), 0 16px 32px rgba(0, 0, 0, 0.07);
     --radius-lg: 20px;
@@ -34,6 +36,8 @@
       --due: #ff453a;
       --amber: #ff9f0a;
       --track: #2c2c2e;
+      --pink: #ff375f;
+      --purple: #bf5af2;
       --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
       --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 32px rgba(0, 0, 0, 0.4);
     }
@@ -121,6 +125,34 @@
     margin: 0 0 16px;
   }
 
+  .tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--track);
+    border-radius: 980px;
+    margin-bottom: 20px;
+  }
+  .tab {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 18px;
+    border-radius: 980px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .tab.active {
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+
   .entity-section {
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -187,6 +219,10 @@
   .card--received .dot { background: var(--received); }
   .card--due .dot { background: var(--due); }
   .card--collected .dot { display: none; }
+  .card--total .dot { background: var(--accent); }
+  .card--boys .dot { background: var(--purple); }
+  .card--girls .dot { background: var(--pink); }
+  .card--new .dot { background: var(--received); }
   .card .label {
     color: var(--muted);
     font-size: 11px;
@@ -201,6 +237,16 @@
     margin-top: 5px;
     font-variant-numeric: tabular-nums;
   }
+
+  .subhead {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 20px 0 8px;
+  }
+  .subhead:first-of-type { margin-top: 0; }
 
   table { width: 100%; border-collapse: collapse; }
   th, td {
@@ -262,6 +308,12 @@
       </div>
     </div>
 
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="fee">Fee Data</button>
+      <button class="tab" data-tab="strength">Student Strength</button>
+      <button class="tab" data-tab="admission">Admission</button>
+    </div>
+
     <div id="status" class="status"></div>
     <div id="sections"></div>
   </div>
@@ -271,8 +323,10 @@
   const sessionInput = document.getElementById('sessionInput');
   const statusEl = document.getElementById('status');
   const sectionsEl = document.getElementById('sections');
+  const tabsEl = document.getElementById('tabs');
 
   let allEntities = [];
+  let activeTab = 'fee';
 
   function formatCurrency(n) {
     return '₹' + Number(n).toLocaleString('en-IN');
@@ -308,6 +362,42 @@
 
     statusEl.textContent = 'Loading…';
     sectionsEl.innerHTML = '';
+
+    if (activeTab === 'admission') {
+      const results = await Promise.all(
+        targets.map(async (e) => {
+          try {
+            const res = await fetch(`/api/admission?entity=${encodeURIComponent(e.id)}&session=${encodeURIComponent(session)}`);
+            const data = await res.json();
+            if (!res.ok) return { entity: e, error: data.error || 'Failed to load' };
+            return { entity: e, data };
+          } catch (err) {
+            return { entity: e, error: 'Network error: ' + err.message };
+          }
+        })
+      );
+      statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
+      sectionsEl.innerHTML = results.map(renderAdmissionSection).join('');
+      return;
+    }
+
+    if (activeTab === 'strength') {
+      const results = await Promise.all(
+        targets.map(async (e) => {
+          try {
+            const res = await fetch(`/api/student-strength?entity=${encodeURIComponent(e.id)}&session=${encodeURIComponent(session)}`);
+            const data = await res.json();
+            if (!res.ok) return { entity: e, error: data.error || 'Failed to load' };
+            return { entity: e, headCount: data.headCount, groupByCourse: data.groupByCourse };
+          } catch (err) {
+            return { entity: e, error: 'Network error: ' + err.message };
+          }
+        })
+      );
+      statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
+      sectionsEl.innerHTML = results.map(renderStrengthSection).join('');
+      return;
+    }
 
     const results = await Promise.all(
       targets.map(async (e) => {
@@ -412,6 +502,147 @@
       </div>
     `;
   }
+
+  function renderStrengthSection({ entity, headCount, groupByCourse, error }) {
+    if (error) {
+      return `
+        <div class="entity-section is-flat">
+          <div class="section-head"><h2>${entity.name}</h2></div>
+          <div class="empty error">${error}</div>
+        </div>
+      `;
+    }
+
+    const total = headCount?.totalStudents || 0;
+
+    if (!total) {
+      return `
+        <div class="entity-section is-flat">
+          <div class="section-head"><h2>${entity.name}</h2></div>
+          <div class="empty">No student data for this session.</div>
+        </div>
+      `;
+    }
+
+    const boys = headCount.boys || 0;
+    const girls = headCount.girls || 0;
+    const newAdmission = headCount.newAdmission || 0;
+
+    const courses = [...(groupByCourse || [])].sort((a, b) => b.total - a.total);
+    const maxCourseTotal = Math.max(...courses.map((c) => c.total), 1);
+
+    const rows = courses
+      .map((c) => {
+        const width = (c.total / maxCourseTotal) * 100;
+        return `
+          <tr>
+            <td>${c.course}</td>
+            <td>${c.total}</td>
+            <td>${c.newAdmission || 0}</td>
+            <td>
+              <div class="pct-cell">
+                <span class="pct-num">${c.total}</span>
+                <div class="bar-wrap"><div class="bar-fill" style="width:${width}%;background:var(--accent)"></div></div>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    return `
+      <div class="entity-section">
+        <div class="section-head">
+          <h2>${entity.name}</h2>
+          <span class="badge good">${total} students</span>
+        </div>
+        <div class="cards">
+          <div class="card card--total"><div class="label"><span class="dot"></span>Total Students</div><div class="value">${total}</div></div>
+          <div class="card card--boys"><div class="label"><span class="dot"></span>Boys</div><div class="value">${boys}</div></div>
+          <div class="card card--girls"><div class="label"><span class="dot"></span>Girls</div><div class="value">${girls}</div></div>
+          <div class="card card--new"><div class="label"><span class="dot"></span>New Admissions</div><div class="value">${newAdmission}</div></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Total</th>
+              <th>New Admissions</th>
+              <th>Strength</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  const ADMISSION_GROUPS = [
+    { key: 'stageWiseCount', title: 'By Stage' },
+    { key: 'enquiriesBySource', title: 'By Source' },
+    { key: 'enquiriesByCourse', title: 'By Course' },
+    { key: 'enquiriesByCourseAndStream', title: 'By Course & Stream' },
+    { key: 'tagWiseCount', title: 'By Tag' },
+    { key: 'admissionCounts', title: 'Admission Counts' },
+  ];
+
+  function renderGenericTable(rows) {
+    const cols = Object.keys(rows[0]);
+    const labelCol = cols.find((c) => typeof rows[0][c] !== 'number') || cols[0];
+    const valueCols = cols.filter((c) => c !== labelCol);
+    const header = `<th>${labelCol}</th>` + valueCols.map((c) => `<th>${c}</th>`).join('');
+    const body = rows
+      .map(
+        (r) =>
+          `<tr><td>${r[labelCol] ?? '—'}</td>${valueCols.map((c) => `<td>${r[c] ?? ''}</td>`).join('')}</tr>`
+      )
+      .join('');
+    return `<table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  function renderAdmissionSection({ entity, data, error }) {
+    if (error) {
+      return `
+        <div class="entity-section is-flat">
+          <div class="section-head"><h2>${entity.name}</h2></div>
+          <div class="empty error">${error}</div>
+        </div>
+      `;
+    }
+
+    const groups = ADMISSION_GROUPS.map((g) => ({ ...g, rows: data[g.key] })).filter(
+      (g) => Array.isArray(g.rows) && g.rows.length
+    );
+
+    if (!groups.length) {
+      return `
+        <div class="entity-section is-flat">
+          <div class="section-head"><h2>${entity.name}</h2></div>
+          <div class="empty">No admission data for this session.</div>
+        </div>
+      `;
+    }
+
+    const tables = groups
+      .map((g) => `<div class="subhead">${g.title}</div>${renderGenericTable(g.rows)}`)
+      .join('');
+
+    return `
+      <div class="entity-section">
+        <div class="section-head"><h2>${entity.name}</h2></div>
+        ${tables}
+      </div>
+    `;
+  }
+
+  tabsEl.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.tab');
+    if (!btn || btn.classList.contains('active')) return;
+    tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    loadData();
+  });
 
   entitySelect.addEventListener('change', loadData);
   sessionInput.addEventListener('change', loadData);
