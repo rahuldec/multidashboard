@@ -7,126 +7,264 @@
 <link rel="icon" type="image/png" href="https://okiedokie-erp-images.s3.ap-south-1.amazonaws.com/Okie%20Dokie/2025/12/sourceURL/26aebcbe10f4ac5a3e8b-611ed1b9032568edd4f3-Okie_Dokie_App_icon__2___2_-removebg-preview.png" />
 <style>
   :root {
-    --bg: #f5f6f8;
-    --card-bg: #ffffff;
-    --text: #1a1d23;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --accent: #2563eb;
-    --received: #16a34a;
-    --due: #dc2626;
-    --estimated: #94a3b8;
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --panel-border: rgba(0, 0, 0, 0.06);
+    --text: #1d1d1f;
+    --muted: #86868b;
+    --accent: #0071e3;
+    --received: #34c759;
+    --due: #ff3b30;
+    --amber: #ff9f0a;
+    --track: #e8e8ed;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
+    --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.05), 0 16px 32px rgba(0, 0, 0, 0.07);
+    --radius-lg: 20px;
+    --radius-md: 14px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14161a;
-      --card-bg: #1e2127;
-      --text: #f0f1f3;
-      --muted: #9aa1ac;
-      --border: #2c303a;
-      --accent: #5b8def;
-      --received: #34d399;
-      --due: #f87171;
-      --estimated: #6b7280;
+      --bg: #000000;
+      --panel: #1c1c1e;
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text: #f5f5f7;
+      --muted: #98989d;
+      --accent: #0a84ff;
+      --received: #30d158;
+      --due: #ff453a;
+      --amber: #ff9f0a;
+      --track: #2c2c2e;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+      --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 32px rgba(0, 0, 0, 0.4);
     }
   }
   * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif;
     background: var(--bg);
     color: var(--text);
-    padding: 24px;
   }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .subtitle { color: var(--muted); font-size: 13px; }
-  .header {
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     display: flex;
     align-items: center;
-    gap: 14px;
-    margin-bottom: 20px;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 16px 0;
+    margin-bottom: 28px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
   .logo {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     object-fit: contain;
+    border-radius: 10px;
+  }
+  h1 {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+    margin-top: 1px;
   }
   .controls {
     display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 10px;
     flex-wrap: wrap;
   }
   select, input {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--card-bg);
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 9px 16px;
+    border-radius: 980px;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
     color: var(--text);
-    font-size: 14px;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
   }
+  select { padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 16px) calc(50% - 2px), calc(100% - 11px) calc(50% - 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; cursor: pointer; }
+  input { width: 130px; }
+  select:hover, input:hover { box-shadow: var(--shadow-hover); }
+  select:focus, input:focus { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  .status {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    margin: 0 0 16px;
+  }
+
+  .entity-section {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 24px 24px 8px;
+    margin-bottom: 24px;
+    transition: box-shadow 0.25s ease;
+  }
+  .entity-section:hover { box-shadow: var(--shadow-hover); }
+  .entity-section.is-flat { padding-bottom: 24px; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .section-head h2 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 11px;
+    border-radius: 980px;
+    white-space: nowrap;
+  }
+  .badge.good { color: var(--received); background: color-mix(in srgb, var(--received) 15%, transparent); }
+  .badge.mid { color: var(--amber); background: color-mix(in srgb, var(--amber) 15%, transparent); }
+  .badge.low { color: var(--due); background: color-mix(in srgb, var(--due) 15%, transparent); }
+
+  .empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding-bottom: 20px;
+  }
+  .empty.error { color: var(--due); }
+
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
   }
   .card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
+    background: color-mix(in srgb, var(--text) 3%, var(--panel));
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
   }
-  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .card .value { font-size: 22px; font-weight: 600; margin-top: 6px; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
+  .card .dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
   }
+  .card--estimated .dot { background: var(--muted); }
+  .card--received .dot { background: var(--received); }
+  .card--due .dot { background: var(--due); }
+  .card--collected .dot { display: none; }
+  .card .label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .card .value {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-top: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
   th, td {
-    text-align: left;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
+    text-align: right;
+    padding: 11px 4px;
+    border-top: 1px solid var(--panel-border);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
   }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; }
-  tr:last-child td { border-bottom: none; }
+  th:first-child, td:first-child { text-align: left; }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-top: none;
+    padding-bottom: 8px;
+  }
+  tbody tr { transition: background 0.15s ease; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+  td:first-child { font-weight: 500; }
+  .pct-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .pct-num { width: 42px; text-align: right; font-weight: 600; }
   .bar-wrap {
-    background: var(--border);
-    border-radius: 4px;
-    height: 8px;
+    width: 64px;
+    background: var(--track);
+    border-radius: 980px;
+    height: 6px;
     overflow: hidden;
-    margin-top: 4px;
   }
-  .bar-fill { height: 100%; background: var(--received); }
-  .status { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-  .error { color: var(--due); }
-  .entity-section { margin-bottom: 36px; }
-  .entity-section h2 { font-size: 16px; margin: 0 0 12px; }
-  .entity-section .empty { color: var(--muted); font-size: 13px; }
+  .bar-fill { height: 100%; border-radius: 980px; }
+
+  @media (max-width: 640px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .topbar { flex-direction: column; align-items: flex-start; }
+    table, thead, tbody, th, td, tr { display: block; }
+    thead { display: none; }
+    td { display: flex; justify-content: space-between; text-align: right; border-top: none; padding: 4px 0; }
+    td:first-child { font-weight: 600; padding-top: 12px; }
+    tr { padding-bottom: 6px; border-bottom: 1px solid var(--panel-border); }
+    tr:last-child { border-bottom: none; }
+  }
 </style>
 </head>
 <body>
-  <div class="header">
-    <img class="logo" src="https://okiedokie-erp-images.s3.ap-south-1.amazonaws.com/DVMD/2026/09/sourceURL/a71be9a759b3aa72698a-fbd5c165ccfcfeee2e05-footer_logo_new.png" alt="Dalmia Vidya Mandir logo" />
-    <div>
-      <h1>Fee Dashboard</h1>
-      <div class="subtitle">Live data from ERP</div>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand">
+        <img class="logo" src="https://okiedokie-erp-images.s3.ap-south-1.amazonaws.com/DVMD/2026/09/sourceURL/a71be9a759b3aa72698a-fbd5c165ccfcfeee2e05-footer_logo_new.png" alt="Dalmia Vidya Mandir logo" />
+        <div>
+          <h1>Fee Dashboard</h1>
+          <div class="subtitle">Live data from ERP</div>
+        </div>
+      </div>
+      <div class="controls">
+        <select id="entitySelect"></select>
+        <input id="sessionInput" type="text" value="2026-27" placeholder="Session" />
+      </div>
     </div>
+
+    <div id="status" class="status"></div>
+    <div id="sections"></div>
   </div>
-
-  <div class="controls">
-    <select id="entitySelect"></select>
-    <input id="sessionInput" type="text" value="2026-27" placeholder="Session e.g. 2026-27" />
-  </div>
-
-  <div id="status" class="status"></div>
-
-  <div id="sections"></div>
 
 <script>
   const entitySelect = document.getElementById('entitySelect');
@@ -138,6 +276,18 @@
 
   function formatCurrency(n) {
     return '₹' + Number(n).toLocaleString('en-IN');
+  }
+
+  function pctColor(p) {
+    if (p >= 75) return 'var(--received)';
+    if (p >= 40) return 'var(--amber)';
+    return 'var(--due)';
+  }
+
+  function badgeClass(p) {
+    if (p >= 75) return 'good';
+    if (p >= 40) return 'mid';
+    return 'low';
   }
 
   async function loadEntities() {
@@ -157,7 +307,6 @@
     const targets = entity ? allEntities.filter((e) => e.id === entity) : allEntities;
 
     statusEl.textContent = 'Loading…';
-    statusEl.classList.remove('error');
     sectionsEl.innerHTML = '';
 
     const results = await Promise.all(
@@ -188,14 +337,24 @@
   function renderSection({ entity, installments, error }) {
     if (error) {
       return `
-        <div class="entity-section">
-          <h2>${entity.name}</h2>
+        <div class="entity-section is-flat">
+          <div class="section-head"><h2>${entity.name}</h2></div>
           <div class="empty error">${error}</div>
         </div>
       `;
     }
 
     const sorted = sortInstallments(installments);
+
+    if (!sorted.length) {
+      return `
+        <div class="entity-section is-flat">
+          <div class="section-head"><h2>${entity.name}</h2></div>
+          <div class="empty">No fee data for this session.</div>
+        </div>
+      `;
+    }
+
     const totals = sorted.reduce(
       (acc, i) => ({
         estimatedAmount: acc.estimatedAmount + i.estimatedAmount,
@@ -204,20 +363,11 @@
       }),
       { estimatedAmount: 0, receivedAmount: 0, dueAmount: 0 }
     );
-    const pct = totals.estimatedAmount ? ((totals.receivedAmount / totals.estimatedAmount) * 100).toFixed(1) : '0';
-
-    if (!sorted.length) {
-      return `
-        <div class="entity-section">
-          <h2>${entity.name}</h2>
-          <div class="empty">No fee data for this session.</div>
-        </div>
-      `;
-    }
+    const pct = totals.estimatedAmount ? (totals.receivedAmount / totals.estimatedAmount) * 100 : 0;
 
     const rows = sorted
       .map((i) => {
-        const p = i.estimatedAmount ? ((i.receivedAmount / i.estimatedAmount) * 100).toFixed(1) : '0';
+        const p = i.estimatedAmount ? (i.receivedAmount / i.estimatedAmount) * 100 : 0;
         return `
           <tr>
             <td>${i.name}</td>
@@ -225,8 +375,10 @@
             <td>${formatCurrency(i.receivedAmount)}</td>
             <td>${formatCurrency(i.dueAmount)}</td>
             <td>
-              ${p}%
-              <div class="bar-wrap"><div class="bar-fill" style="width:${p}%"></div></div>
+              <div class="pct-cell">
+                <span class="pct-num">${p.toFixed(1)}%</span>
+                <div class="bar-wrap"><div class="bar-fill" style="width:${p}%;background:${pctColor(p)}"></div></div>
+              </div>
             </td>
           </tr>
         `;
@@ -235,12 +387,15 @@
 
     return `
       <div class="entity-section">
-        <h2>${entity.name}</h2>
+        <div class="section-head">
+          <h2>${entity.name}</h2>
+          <span class="badge ${badgeClass(pct)}">${pct.toFixed(1)}% collected</span>
+        </div>
         <div class="cards">
-          <div class="card"><div class="label">Estimated</div><div class="value">${formatCurrency(totals.estimatedAmount)}</div></div>
-          <div class="card"><div class="label">Received</div><div class="value">${formatCurrency(totals.receivedAmount)}</div></div>
-          <div class="card"><div class="label">Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
-          <div class="card"><div class="label">Collected</div><div class="value">${pct}%</div></div>
+          <div class="card card--estimated"><div class="label"><span class="dot"></span>Estimated</div><div class="value">${formatCurrency(totals.estimatedAmount)}</div></div>
+          <div class="card card--received"><div class="label"><span class="dot"></span>Received</div><div class="value">${formatCurrency(totals.receivedAmount)}</div></div>
+          <div class="card card--due"><div class="label"><span class="dot"></span>Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
+          <div class="card card--collected"><div class="label">Collected</div><div class="value">${pct.toFixed(1)}%</div></div>
         </div>
         <table>
           <thead>
@@ -249,7 +404,7 @@
               <th>Estimated</th>
               <th>Received</th>
               <th>Due</th>
-              <th>Collected %</th>
+              <th>Collected</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
