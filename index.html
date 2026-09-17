@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fee Dashboard</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card-bg: #ffffff;
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #2563eb;
+    --received: #16a34a;
+    --due: #dc2626;
+    --estimated: #94a3b8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --card-bg: #1e2127;
+      --text: #f0f1f3;
+      --muted: #9aa1ac;
+      --border: #2c303a;
+      --accent: #5b8def;
+      --received: #34d399;
+      --due: #f87171;
+      --estimated: #6b7280;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  select, input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 6px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  tr:last-child td { border-bottom: none; }
+  .bar-wrap {
+    background: var(--border);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .bar-fill { height: 100%; background: var(--received); }
+  .status { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .error { color: var(--due); }
+</style>
+</head>
+<body>
+  <h1>Fee Dashboard</h1>
+  <div class="subtitle">Live data from ERP</div>
+
+  <div class="controls">
+    <select id="entitySelect"></select>
+    <input id="sessionInput" type="text" value="2026-27" placeholder="Session e.g. 2026-27" />
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <div class="cards" id="summaryCards"></div>
+
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th>Installment</th>
+        <th>Estimated</th>
+        <th>Received</th>
+        <th>Due</th>
+        <th>Collected %</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+<script>
+  const entitySelect = document.getElementById('entitySelect');
+  const sessionInput = document.getElementById('sessionInput');
+  const statusEl = document.getElementById('status');
+  const cardsEl = document.getElementById('summaryCards');
+  const tableBody = document.getElementById('tableBody');
+
+  function formatCurrency(n) {
+    return '₹' + Number(n).toLocaleString('en-IN');
+  }
+
+  async function loadEntities() {
+    const res = await fetch('/api/entities');
+    const entities = await res.json();
+    entitySelect.innerHTML = entities
+      .map((e) => `<option value="${e.id}">${e.name}</option>`)
+      .join('');
+    if (entities.length) loadData();
+  }
+
+  async function loadData() {
+    const entity = entitySelect.value;
+    const session = sessionInput.value.trim();
+    if (!entity || !session) return;
+
+    statusEl.textContent = 'Loading…';
+    statusEl.classList.remove('error');
+    cardsEl.innerHTML = '';
+    tableBody.innerHTML = '';
+
+    try {
+      const res = await fetch(`/api/fee-data?entity=${encodeURIComponent(entity)}&session=${encodeURIComponent(session)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        statusEl.textContent = data.error || 'Failed to load';
+        statusEl.classList.add('error');
+        return;
+      }
+
+      statusEl.textContent = `${data.entity.name} · Session ${data.session}`;
+      render(data.installments);
+    } catch (err) {
+      statusEl.textContent = 'Network error: ' + err.message;
+      statusEl.classList.add('error');
+    }
+  }
+
+  const MONTH_ORDER = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+  const QUARTER_ORDER = ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
+
+  function sortInstallments(installments) {
+    const order = MONTH_ORDER.includes(installments[0]?.name) ? MONTH_ORDER : QUARTER_ORDER;
+    return [...installments].sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+  }
+
+  function render(installmentsRaw) {
+    const installments = sortInstallments(installmentsRaw);
+    const totals = installments.reduce(
+      (acc, i) => ({
+        estimatedAmount: acc.estimatedAmount + i.estimatedAmount,
+        receivedAmount: acc.receivedAmount + i.receivedAmount,
+        dueAmount: acc.dueAmount + i.dueAmount,
+      }),
+      { estimatedAmount: 0, receivedAmount: 0, dueAmount: 0 }
+    );
+    const pct = totals.estimatedAmount ? ((totals.receivedAmount / totals.estimatedAmount) * 100).toFixed(1) : '0';
+
+    cardsEl.innerHTML = `
+      <div class="card"><div class="label">Estimated</div><div class="value">${formatCurrency(totals.estimatedAmount)}</div></div>
+      <div class="card"><div class="label">Received</div><div class="value">${formatCurrency(totals.receivedAmount)}</div></div>
+      <div class="card"><div class="label">Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
+      <div class="card"><div class="label">Collected</div><div class="value">${pct}%</div></div>
+    `;
+
+    tableBody.innerHTML = installments
+      .map((i) => {
+        const p = i.estimatedAmount ? ((i.receivedAmount / i.estimatedAmount) * 100).toFixed(1) : '0';
+        return `
+          <tr>
+            <td>${i.name}</td>
+            <td>${formatCurrency(i.estimatedAmount)}</td>
+            <td>${formatCurrency(i.receivedAmount)}</td>
+            <td>${formatCurrency(i.dueAmount)}</td>
+            <td>
+              ${p}%
+              <div class="bar-wrap"><div class="bar-fill" style="width:${p}%"></div></div>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  entitySelect.addEventListener('change', loadData);
+  sessionInput.addEventListener('change', loadData);
+
+  loadEntities();
+</script>
+</body>
+</html>
