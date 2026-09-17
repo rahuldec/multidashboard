@@ -436,7 +436,8 @@
         })
       );
       statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
-      sectionsEl.innerHTML = results.map(renderAdmissionSection).join('');
+      const sorted = sortByHasData(results, admissionHasData);
+      sectionsEl.innerHTML = sorted.map(renderAdmissionSection).join('');
       return;
     }
 
@@ -454,7 +455,8 @@
         })
       );
       statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
-      sectionsEl.innerHTML = results.map(renderStrengthSection).join('');
+      const sorted = sortByHasData(results, strengthHasData);
+      sectionsEl.innerHTML = sorted.map(renderStrengthSection).join('');
       return;
     }
 
@@ -473,7 +475,31 @@
 
     statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
     const groupHtml = entity ? '' : renderGroupSummary(results);
-    sectionsEl.innerHTML = groupHtml + results.map(renderSection).join('');
+    const sorted = sortByHasData(results, feeHasData);
+    sectionsEl.innerHTML = groupHtml + sorted.map(renderSection).join('');
+  }
+
+  function sortByHasData(results, hasDataFn) {
+    return results
+      .map((r, idx) => ({ r, idx, has: hasDataFn(r) }))
+      .sort((a, b) => (a.has === b.has ? a.idx - b.idx : a.has ? -1 : 1))
+      .map((x) => x.r);
+  }
+
+  function feeHasData(r) {
+    if (r.error || !r.installments) return false;
+    return r.installments.some((i) => i.estimatedAmount > 0);
+  }
+
+  function strengthHasData(r) {
+    if (r.error) return false;
+    return (r.headCount?.totalStudents || 0) > 0;
+  }
+
+  function admissionHasData(r) {
+    if (r.error) return false;
+    const d = r.data || {};
+    return Object.values(d).some((v) => Array.isArray(v) && v.length > 0);
   }
 
   function renderGroupSummary(results) {
