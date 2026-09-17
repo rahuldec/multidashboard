@@ -253,6 +253,58 @@
   }
   .subhead:first-of-type { margin-top: 0; }
 
+  .chart-wrap { margin-bottom: 20px; }
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .legend-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .grid-line { stroke: var(--panel-border); stroke-width: 1; }
+  .axis-label { fill: var(--muted); font-size: 10px; font-weight: 500; }
+  .x-label { fill: var(--muted); font-size: 10px; font-weight: 600; }
+  .bar-group { cursor: pointer; }
+  .bar-seg { transition: opacity 0.15s ease; }
+  .bar-group:hover .bar-seg { opacity: 0.75; }
+  .bar-seg-received { fill: var(--received); }
+  .bar-seg-due { fill: var(--due); }
+
+  .chart-tooltip {
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-hover);
+    padding: 10px 12px;
+    font-size: 12px;
+    min-width: 150px;
+    opacity: 0;
+    transform: translate(-50%, calc(-100% - 12px));
+    transition: opacity 0.1s ease;
+  }
+  .chart-tooltip.visible { opacity: 1; }
+  .chart-tooltip .tt-title { font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .chart-tooltip .tt-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; padding: 2px 0; }
+  .chart-tooltip .tt-key { display: flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 500; }
+  .chart-tooltip .tt-stroke { width: 10px; height: 2px; border-radius: 1px; display: inline-block; }
+  .chart-tooltip .tt-val { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
   table { width: 100%; border-collapse: collapse; }
   th, td {
     text-align: right;
@@ -322,6 +374,8 @@
     <div id="status" class="status"></div>
     <div id="sections"></div>
   </div>
+
+  <div id="chartTooltip" class="chart-tooltip"></div>
 
 <script>
   const entitySelect = document.getElementById('entitySelect');
@@ -524,6 +578,7 @@
           <div class="card card--due"><div class="label"><span class="dot"></span>Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
           <div class="card card--collected"><div class="label">Collected</div><div class="value">${pct.toFixed(1)}%</div></div>
         </div>
+        ${totals.estimatedAmount > 0 ? buildBarChart(sorted) : ''}
         <table>
           <thead>
             <tr>
@@ -536,6 +591,105 @@
           </thead>
           <tbody>${rows}</tbody>
         </table>
+      </div>
+    `;
+  }
+
+  function formatCompact(n) {
+    if (n >= 1e7) return '₹' + (n / 1e7).toFixed(1).replace(/\.0$/, '') + 'Cr';
+    if (n >= 1e5) return '₹' + (n / 1e5).toFixed(1).replace(/\.0$/, '') + 'L';
+    if (n >= 1e3) return '₹' + (n / 1e3).toFixed(0) + 'K';
+    return '₹' + n;
+  }
+
+  function niceCeil(n) {
+    if (n <= 0) return 1;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(n)));
+    const normalized = n / magnitude;
+    let step;
+    if (normalized <= 1) step = 1;
+    else if (normalized <= 2) step = 2;
+    else if (normalized <= 5) step = 5;
+    else step = 10;
+    return step * magnitude;
+  }
+
+  function roundedTopPath(x, y, w, h, r) {
+    if (h <= 0) return '';
+    r = Math.min(r, w / 2, h);
+    if (r <= 0) return `M${x},${y} h${w} v${h} h${-w} Z`;
+    return `M${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x},${y + h} Z`;
+  }
+
+  function buildBarChart(installments) {
+    const W = 720;
+    const H = 220;
+    const padLeft = 44;
+    const padRight = 8;
+    const padTop = 12;
+    const padBottom = 26;
+    const plotW = W - padLeft - padRight;
+    const plotH = H - padTop - padBottom;
+    const baseline = padTop + plotH;
+
+    const maxEstimated = Math.max(...installments.map((i) => i.estimatedAmount), 1);
+    const niceMax = niceCeil(maxEstimated);
+    const scale = plotH / niceMax;
+
+    const n = installments.length;
+    const band = plotW / n;
+    const barWidth = Math.min(24, band * 0.55);
+    const gap = 2;
+
+    const gridTicks = [0, 0.5, 1].map((f) => {
+      const y = baseline - plotH * f;
+      const val = niceMax * f;
+      return `
+        <line class="grid-line" x1="${padLeft}" y1="${y}" x2="${W - padRight}" y2="${y}" />
+        <text class="axis-label" x="${padLeft - 8}" y="${y + 3}" text-anchor="end">${formatCompact(val)}</text>
+      `;
+    }).join('');
+
+    const bars = installments
+      .map((inst, idx) => {
+        const x = padLeft + idx * band + (band - barWidth) / 2;
+        const receivedH = Math.max(inst.receivedAmount * scale, 0);
+        const dueH = Math.max(inst.dueAmount * scale, 0);
+
+        let segMarkup = '';
+        if (dueH > 0) {
+          const receivedY = baseline - receivedH;
+          const dueY = receivedY - gap - dueH;
+          if (receivedH > 0) {
+            segMarkup += `<rect class="bar-seg bar-seg-received" x="${x}" y="${receivedY}" width="${barWidth}" height="${receivedH}" />`;
+          }
+          segMarkup += `<path class="bar-seg bar-seg-due" d="${roundedTopPath(x, dueY, barWidth, dueH, 4)}" />`;
+        } else if (receivedH > 0) {
+          segMarkup += `<path class="bar-seg bar-seg-received" d="${roundedTopPath(x, baseline - receivedH, barWidth, receivedH, 4)}" />`;
+        }
+
+        const labelX = x + barWidth / 2;
+        return `
+          <g class="bar-group" data-name="${inst.name}" data-estimated="${inst.estimatedAmount}" data-received="${inst.receivedAmount}" data-due="${inst.dueAmount}">
+            <rect x="${padLeft + idx * band}" y="${padTop}" width="${band}" height="${plotH}" fill="transparent" />
+            ${segMarkup}
+            <text class="x-label" x="${labelX}" y="${H - 6}" text-anchor="middle">${inst.name}</text>
+          </g>
+        `;
+      })
+      .join('');
+
+    return `
+      <div class="chart-wrap">
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--received)"></span>Received</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--due)"></span>Due</span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Received vs due by installment">
+          ${gridTicks}
+          <line class="grid-line" x1="${padLeft}" y1="${baseline}" x2="${W - padRight}" y2="${baseline}" style="stroke:var(--muted)" />
+          ${bars}
+        </svg>
       </div>
     `;
   }
@@ -683,6 +837,58 @@
 
   entitySelect.addEventListener('change', loadData);
   sessionInput.addEventListener('change', loadData);
+
+  const tooltipEl = document.getElementById('chartTooltip');
+
+  function showTooltip(group, clientX, clientY) {
+    const name = group.dataset.name;
+    const received = Number(group.dataset.received);
+    const due = Number(group.dataset.due);
+    const estimated = Number(group.dataset.estimated);
+
+    tooltipEl.innerHTML = '';
+    const title = document.createElement('div');
+    title.className = 'tt-title';
+    title.textContent = name;
+    tooltipEl.appendChild(title);
+
+    [
+      ['Estimated', estimated, 'var(--muted)'],
+      ['Received', received, 'var(--received)'],
+      ['Due', due, 'var(--due)'],
+    ].forEach(([label, value, color]) => {
+      const row = document.createElement('div');
+      row.className = 'tt-row';
+      const key = document.createElement('span');
+      key.className = 'tt-key';
+      const stroke = document.createElement('span');
+      stroke.className = 'tt-stroke';
+      stroke.style.background = color;
+      key.appendChild(stroke);
+      key.appendChild(document.createTextNode(label));
+      const val = document.createElement('span');
+      val.className = 'tt-val';
+      val.textContent = formatCurrency(value);
+      row.appendChild(key);
+      row.appendChild(val);
+      tooltipEl.appendChild(row);
+    });
+
+    tooltipEl.style.left = clientX + 'px';
+    tooltipEl.style.top = clientY + 'px';
+    tooltipEl.classList.add('visible');
+  }
+
+  function hideTooltip() {
+    tooltipEl.classList.remove('visible');
+  }
+
+  sectionsEl.addEventListener('pointermove', (ev) => {
+    const group = ev.target.closest('.bar-group');
+    if (!group) { hideTooltip(); return; }
+    showTooltip(group, ev.clientX, ev.clientY);
+  });
+  sectionsEl.addEventListener('pointerleave', hideTooltip, true);
 
   loadEntities();
 </script>
