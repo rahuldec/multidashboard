@@ -164,6 +164,11 @@
   }
   .entity-section:hover { box-shadow: var(--shadow-hover); }
   .entity-section.is-flat { padding-bottom: 24px; }
+  .entity-section.group-summary {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--panel)), var(--panel));
+    border-color: color-mix(in srgb, var(--accent) 25%, var(--panel-border));
+  }
+  .group-summary .section-head h2 { font-size: 19px; }
 
   .section-head {
     display: flex;
@@ -413,7 +418,39 @@
     );
 
     statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
-    sectionsEl.innerHTML = results.map(renderSection).join('');
+    const groupHtml = entity ? '' : renderGroupSummary(results);
+    sectionsEl.innerHTML = groupHtml + results.map(renderSection).join('');
+  }
+
+  function renderGroupSummary(results) {
+    const totals = results.reduce(
+      (acc, r) => {
+        if (r.error || !r.installments) return acc;
+        r.installments.forEach((i) => {
+          acc.estimatedAmount += i.estimatedAmount;
+          acc.receivedAmount += i.receivedAmount;
+          acc.dueAmount += i.dueAmount;
+        });
+        return acc;
+      },
+      { estimatedAmount: 0, receivedAmount: 0, dueAmount: 0 }
+    );
+    const pct = totals.estimatedAmount ? (totals.receivedAmount / totals.estimatedAmount) * 100 : 0;
+
+    return `
+      <div class="entity-section group-summary">
+        <div class="section-head">
+          <h2>Dalmia Group</h2>
+          <span class="badge ${badgeClass(pct)}">${pct.toFixed(1)}% collected</span>
+        </div>
+        <div class="cards">
+          <div class="card card--estimated"><div class="label"><span class="dot"></span>Estimated</div><div class="value">${formatCurrency(totals.estimatedAmount)}</div></div>
+          <div class="card card--received"><div class="label"><span class="dot"></span>Received</div><div class="value">${formatCurrency(totals.receivedAmount)}</div></div>
+          <div class="card card--due"><div class="label"><span class="dot"></span>Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
+          <div class="card card--collected"><div class="label">Collected</div><div class="value">${pct.toFixed(1)}%</div></div>
+        </div>
+      </div>
+    `;
   }
 
   const MONTH_ORDER = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
