@@ -105,6 +105,9 @@
   .bar-fill { height: 100%; background: var(--received); }
   .status { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
   .error { color: var(--due); }
+  .entity-section { margin-bottom: 36px; }
+  .entity-section h2 { font-size: 16px; margin: 0 0 12px; }
+  .entity-section .empty { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -123,27 +126,15 @@
 
   <div id="status" class="status"></div>
 
-  <div class="cards" id="summaryCards"></div>
-
-  <table id="dataTable">
-    <thead>
-      <tr>
-        <th>Installment</th>
-        <th>Estimated</th>
-        <th>Received</th>
-        <th>Due</th>
-        <th>Collected %</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
+  <div id="sections"></div>
 
 <script>
   const entitySelect = document.getElementById('entitySelect');
   const sessionInput = document.getElementById('sessionInput');
   const statusEl = document.getElementById('status');
-  const cardsEl = document.getElementById('summaryCards');
-  const tableBody = document.getElementById('tableBody');
+  const sectionsEl = document.getElementById('sections');
+
+  let allEntities = [];
 
   function formatCurrency(n) {
     return '₹' + Number(n).toLocaleString('en-IN');
@@ -151,39 +142,39 @@
 
   async function loadEntities() {
     const res = await fetch('/api/entities');
-    const entities = await res.json();
-    entitySelect.innerHTML = entities
-      .map((e) => `<option value="${e.id}">${e.name}</option>`)
-      .join('');
-    if (entities.length) loadData();
+    allEntities = await res.json();
+    entitySelect.innerHTML =
+      `<option value="">All Entities</option>` +
+      allEntities.map((e) => `<option value="${e.id}">${e.name}</option>`).join('');
+    if (allEntities.length) loadData();
   }
 
   async function loadData() {
     const entity = entitySelect.value;
     const session = sessionInput.value.trim();
-    if (!entity || !session) return;
+    if (!session) return;
+
+    const targets = entity ? allEntities.filter((e) => e.id === entity) : allEntities;
 
     statusEl.textContent = 'Loading…';
     statusEl.classList.remove('error');
-    cardsEl.innerHTML = '';
-    tableBody.innerHTML = '';
+    sectionsEl.innerHTML = '';
 
-    try {
-      const res = await fetch(`/api/fee-data?entity=${encodeURIComponent(entity)}&session=${encodeURIComponent(session)}`);
-      const data = await res.json();
+    const results = await Promise.all(
+      targets.map(async (e) => {
+        try {
+          const res = await fetch(`/api/fee-data?entity=${encodeURIComponent(e.id)}&session=${encodeURIComponent(session)}`);
+          const data = await res.json();
+          if (!res.ok) return { entity: e, error: data.error || 'Failed to load' };
+          return { entity: e, installments: data.installments };
+        } catch (err) {
+          return { entity: e, error: 'Network error: ' + err.message };
+        }
+      })
+    );
 
-      if (!res.ok) {
-        statusEl.textContent = data.error || 'Failed to load';
-        statusEl.classList.add('error');
-        return;
-      }
-
-      statusEl.textContent = `${data.entity.name} · Session ${data.session}`;
-      render(data.installments);
-    } catch (err) {
-      statusEl.textContent = 'Network error: ' + err.message;
-      statusEl.classList.add('error');
-    }
+    statusEl.textContent = `Session ${session} · ${targets.length} ${targets.length === 1 ? 'entity' : 'entities'}`;
+    sectionsEl.innerHTML = results.map(renderSection).join('');
   }
 
   const MONTH_ORDER = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
@@ -194,9 +185,18 @@
     return [...installments].sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
   }
 
-  function render(installmentsRaw) {
-    const installments = sortInstallments(installmentsRaw);
-    const totals = installments.reduce(
+  function renderSection({ entity, installments, error }) {
+    if (error) {
+      return `
+        <div class="entity-section">
+          <h2>${entity.name}</h2>
+          <div class="empty error">${error}</div>
+        </div>
+      `;
+    }
+
+    const sorted = sortInstallments(installments);
+    const totals = sorted.reduce(
       (acc, i) => ({
         estimatedAmount: acc.estimatedAmount + i.estimatedAmount,
         receivedAmount: acc.receivedAmount + i.receivedAmount,
@@ -206,14 +206,16 @@
     );
     const pct = totals.estimatedAmount ? ((totals.receivedAmount / totals.estimatedAmount) * 100).toFixed(1) : '0';
 
-    cardsEl.innerHTML = `
-      <div class="card"><div class="label">Estimated</div><div class="value">${formatCurrency(totals.estimatedAmount)}</div></div>
-      <div class="card"><div class="label">Received</div><div class="value">${formatCurrency(totals.receivedAmount)}</div></div>
-      <div class="card"><div class="label">Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
-      <div class="card"><div class="label">Collected</div><div class="value">${pct}%</div></div>
-    `;
+    if (!sorted.length) {
+      return `
+        <div class="entity-section">
+          <h2>${entity.name}</h2>
+          <div class="empty">No fee data for this session.</div>
+        </div>
+      `;
+    }
 
-    tableBody.innerHTML = installments
+    const rows = sorted
       .map((i) => {
         const p = i.estimatedAmount ? ((i.receivedAmount / i.estimatedAmount) * 100).toFixed(1) : '0';
         return `
@@ -230,6 +232,30 @@
         `;
       })
       .join('');
+
+    return `
+      <div class="entity-section">
+        <h2>${entity.name}</h2>
+        <div class="cards">
+          <div class="card"><div class="label">Estimated</div><div class="value">${formatCurrency(totals.estimatedAmount)}</div></div>
+          <div class="card"><div class="label">Received</div><div class="value">${formatCurrency(totals.receivedAmount)}</div></div>
+          <div class="card"><div class="label">Due</div><div class="value">${formatCurrency(totals.dueAmount)}</div></div>
+          <div class="card"><div class="label">Collected</div><div class="value">${pct}%</div></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Installment</th>
+              <th>Estimated</th>
+              <th>Received</th>
+              <th>Due</th>
+              <th>Collected %</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
   }
 
   entitySelect.addEventListener('change', loadData);
