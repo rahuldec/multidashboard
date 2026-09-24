@@ -388,7 +388,7 @@
   let activeTab = 'fee';
 
   function formatCurrency(n) {
-    return '₹' + Number(n).toLocaleString('en-IN');
+    return '₹' + Math.round(Number(n)).toLocaleString('en-IN');
   }
 
   function pctColor(p) {
@@ -537,8 +537,15 @@
   const QUARTER_ORDER = ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
 
   function sortInstallments(installments) {
-    const order = MONTH_ORDER.includes(installments[0]?.name) ? MONTH_ORDER : QUARTER_ORDER;
-    return [...installments].sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+    const known = [...MONTH_ORDER, ...QUARTER_ORDER];
+    return [...installments].sort((a, b) => {
+      const ai = known.indexOf(a.name);
+      const bi = known.indexOf(b.name);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
   }
 
   function renderSection({ entity, installments, error }) {
